@@ -2,7 +2,7 @@ name: Build and Push Custom Whisparr Docker Image
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, master, develop, nightly ]
     tags: [ 'v*' ]
   pull_request:
     branches: [ main, master ]

@@ -10,24 +10,30 @@ RUN \
     git \
     nodejs \
     npm \
-    curl
+    yarn \
+    curl \
+    bash
 
 # Clone and build your custom Whisparr
-ARG WHISPARR_REPO="https://github.com/gykes/Whisparr.git"
+ARG WHISPARR_REPO="https://github.com/Gykes/Whisparr.git"
 ARG WHISPARR_BRANCH="develop"
 
 WORKDIR /src
 RUN \
   echo "**** clone and build whisparr ****" && \
   git clone --depth 1 --branch ${WHISPARR_BRANCH} ${WHISPARR_REPO} . && \
+  echo "**** setup node version and corepack ****" && \
+  npm i -g corepack && \
+  corepack enable && \
   echo "**** build frontend ****" && \
-  npm install --legacy-peer-deps && \
-  npm run build && \
+  yarn install && \
+  yarn build && \
   echo "**** build backend ****" && \
-  dotnet publish src/Whisparr -c Release -o /app/whisparr/bin \
-    --self-contained --runtime linux-musl-x64 \
-    /p:PublishSingleFile=false \
-    /p:PublishReadyToRun=true
+  dotnet clean src/Whisparr.sln -c Release && \
+  dotnet msbuild -restore src/Whisparr.sln -p:Configuration=Release -p:Platform=Posix -t:PublishAllRids && \
+  echo "**** copy build output ****" && \
+  mkdir -p /app/whisparr/bin && \
+  cp -r _output/net6.0/linux-musl-x64/* /app/whisparr/bin/
 
 # Runtime stage
 FROM ghcr.io/linuxserver/baseimage-alpine:3.21
@@ -38,8 +44,8 @@ ARG VERSION
 ARG APP_VERSION
 LABEL build_version="Version:- ${VERSION} Build-date:- ${BUILD_DATE}"
 LABEL maintainer="Gykes"
-LABEL org.opencontainers.image.source="https://github.com/gykes/Whisparr"
-LABEL org.opencontainers.image.url="https://github.com/gykes/Whisparr"
+LABEL org.opencontainers.image.source="https://github.com/Gykes/Whisparr"
+LABEL org.opencontainers.image.url="https://github.com/Gykes/Whisparr"
 LABEL org.opencontainers.image.description="Custom build of Whisparr - An adult movie collection manager for Usenet and BitTorrent users."
 LABEL org.opencontainers.image.authors="Gykes"
 
@@ -58,7 +64,7 @@ COPY --from=builder /app/whisparr/bin /app/whisparr/bin
 
 RUN \
   echo "**** create package info ****" && \
-  echo -e "UpdateMethod=docker\nBranch=${APP_BRANCH}\nPackageVersion=${VERSION}\nPackageAuthor=[gykes](https://github.com/gykes)" > /app/whisparr/package_info && \
+  echo -e "UpdateMethod=docker\nBranch=${APP_BRANCH}\nPackageVersion=${VERSION}\nPackageAuthor=[Gykes](https://github.com/Gykes)" > /app/whisparr/package_info && \
   printf "Version: ${VERSION}\nBuild-date: ${BUILD_DATE}" > /build_version && \
   echo "**** cleanup ****" && \
   rm -rf \
